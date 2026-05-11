@@ -55,6 +55,8 @@ TEMP_DIR=$(mktemp -d)
 OUTPUT_DIR="$TEMP_DIR/$ARCHIVE_NAME"
 mkdir -p "$OUTPUT_DIR"
 
+trap 'rm -rf "${TEMP_DIR}"' EXIT
+
 MAIN_LOG_FILE="$OUTPUT_DIR/00_nrk8s_diag_$TIMESTAMP.log"
 
 # Kube output files
