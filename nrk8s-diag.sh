@@ -251,32 +251,55 @@ describe_all_resources() {
 
 retrieve_pod_logs() {
     my_banner "Retrieving Pod Logs for '${NAMESPACE}' → $(basename "${POD_LOGS_FILE}")"
-    {
-        local pods
-        pods=$(kubectl get pods -n "${NAMESPACE}" --no-headers -o custom-columns=":metadata.name")
 
-        if [[ -z "${pods}" ]]; then
-            printf "No pods found in namespace '%s'.\n" "${NAMESPACE}"
-            return
-        fi
+    local pods
+    pods=$(kubectl get pods -n "${NAMESPACE}" --no-headers -o custom-columns=":metadata.name")
 
-        for pod in ${pods}; do
+    if [[ -z "${pods}" ]]; then
+        printf "No pods found in namespace '%s'.\n" >> "${POD_LOGS_FILE}"
+        return
+    fi
+
+    local work_dir
+    work_dir=$(mktemp -d)
+    local job_count=0
+    local max_jobs=10
+
+    for pod in ${pods}; do
+        (
             local containers
             containers=$(kubectl get pod "${pod}" -n "${NAMESPACE}" \
-                -o jsonpath='{range .spec.initContainers[*]}{.name} {end}{range .spec.containers[*]}{.name} {end}')
+                -o jsonpath='{range .spec.initContainers[*]}{.name} {end}{range .spec.containers[*]}{.name} {end}') || exit 0
             IFS=' ' read -r -a container_array <<< "${containers}"
 
-            for container in "${container_array[@]}"; do
-                printf "\n=====  Pod: %s / Container: %s  =====\n" "${pod}" "${container}"
-                echo "--- CURRENT ---"
-                kubectl logs "${pod}" -c "${container}" -n "${NAMESPACE}" --tail=1000 \
-                    || printf "No current logs.\n"
-                echo "--- PREVIOUS ---"
-                kubectl logs --previous "${pod}" -c "${container}" -n "${NAMESPACE}" --tail=1000 \
-                    || printf "No previous logs (normal if pod has not restarted).\n"
-            done
+            {
+                for container in "${container_array[@]}"; do
+                    printf "\n=====  Pod: %s / Container: %s  =====\n" "${pod}" "${container}"
+                    echo "--- CURRENT ---"
+                    kubectl logs "${pod}" -c "${container}" -n "${NAMESPACE}" --tail=1000 \
+                        || printf "No current logs.\n"
+                    echo "--- PREVIOUS ---"
+                    kubectl logs --previous "${pod}" -c "${container}" -n "${NAMESPACE}" --tail=1000 \
+                        || printf "No previous logs (normal if pod has not restarted).\n"
+                done
+            } > "${work_dir}/${pod}.log" 2>&1
+        ) &
+
+        job_count=$(( job_count + 1 ))
+        if [[ ${job_count} -ge ${max_jobs} ]]; then
+            wait
+            job_count=0
+        fi
+    done
+    wait
+
+    {
+        for f in $(find "${work_dir}" -name "*.log" -type f | sort); do
+            cat "${f}"
         done
     } >> "${POD_LOGS_FILE}" 2>&1
+
+    rm -rf "${work_dir}"
 }
 
 gather_namespace_events() {
