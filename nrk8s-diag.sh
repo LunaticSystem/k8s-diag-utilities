@@ -208,22 +208,45 @@ gather_workload_status() {
 
 describe_all_resources() {
     my_banner "Describing All Resources in '${NAMESPACE}' → $(basename "${DESCRIBE_LOG_FILE}")"
-    {
-        local resource_types
-        resource_types=$(kubectl api-resources --namespaced=true -o name | grep -v "^events$" | sort | uniq)
 
-        for resource in ${resource_types}; do
+    local resource_types
+    resource_types=$(kubectl api-resources --namespaced=true -o name | grep -vE "^events$|^events\." | sort | uniq)
+
+    local work_dir
+    work_dir=$(mktemp -d)
+    local job_count=0
+    local max_jobs=10
+
+    for resource in ${resource_types}; do
+        (
             local names
             names=$(kubectl get "${resource}" -n "${NAMESPACE}" \
-                --no-headers -o custom-columns=":metadata.name" 2>/dev/null) || continue
-            [[ -z "${names}" ]] && continue
+                --no-headers -o custom-columns=":metadata.name" 2>/dev/null) || exit 0
+            [[ -z "${names}" ]] && exit 0
 
-            for name in ${names}; do
-                printf "\n===  %s/%s  ===\n" "${resource}" "${name}"
-                kubectl describe "${resource}" "${name}" -n "${NAMESPACE}"
-            done
+            {
+                for name in ${names}; do
+                    printf "\n===  %s/%s  ===\n" "${resource}" "${name}"
+                    kubectl describe "${resource}" "${name}" -n "${NAMESPACE}"
+                done
+            } > "${work_dir}/${resource}.log" 2>&1
+        ) &
+
+        job_count=$(( job_count + 1 ))
+        if [[ ${job_count} -ge ${max_jobs} ]]; then
+            wait
+            job_count=0
+        fi
+    done
+    wait
+
+    {
+        for f in $(find "${work_dir}" -name "*.log" -type f | sort); do
+            cat "${f}"
         done
     } >> "${DESCRIBE_LOG_FILE}" 2>&1
+
+    rm -rf "${work_dir}"
 }
 
 retrieve_pod_logs() {
