@@ -258,7 +258,7 @@ retrieve_pod_logs() {
     pods=$(kubectl get pods -n "${NAMESPACE}" --no-headers -o custom-columns=":metadata.name")
 
     if [[ -z "${pods}" ]]; then
-        printf "No pods found in namespace '%s'.\n" >> "${POD_LOGS_FILE}"
+        printf "No pods found in namespace '%s'.\n" "${NAMESPACE}" >> "${POD_LOGS_FILE}"
         return
     fi
 
