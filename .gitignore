@@ -2,5 +2,7 @@
 .claude/
 CLAUDE.md
 
-# Tests
-tests/
+# Test artifacts
+tests/*.tap
+tests/*.xml
+tests/report*

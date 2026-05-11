@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Mock px CLI for nrk8s-diag.sh tests.
+
+cmd="${1:-}"
+sub="${2:-}"
+
+case "${cmd}" in
+    run)
+        printf "Mock Pixie agent status: all agents healthy\n"
+        exit 0
+        ;;
+    collect-logs)
+        printf "Mock Pixie log collection complete\n"
+        exit 0
+        ;;
+    auth)
+        exit 0
+        ;;
+    *)
+        exit 0
+        ;;
+esac

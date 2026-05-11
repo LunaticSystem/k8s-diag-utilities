@@ -245,10 +245,10 @@ retrieve_pod_logs() {
 
             for container in "${container_array[@]}"; do
                 printf "\n=====  Pod: %s / Container: %s  =====\n" "${pod}" "${container}"
-                printf "--- CURRENT ---\n"
+                echo "--- CURRENT ---"
                 kubectl logs "${pod}" -c "${container}" -n "${NAMESPACE}" --tail=1000 \
                     || printf "No current logs.\n"
-                printf "--- PREVIOUS ---\n"
+                echo "--- PREVIOUS ---"
                 kubectl logs --previous "${pod}" -c "${container}" -n "${NAMESPACE}" --tail=1000 \
                     || printf "No previous logs (normal if pod has not restarted).\n"
             done
@@ -333,7 +333,7 @@ get_pixie_node_information() {
     my_banner "Pixie Node Information → $(basename "${PIXIE_NODE_INFO_FILE}")"
     {
         local nodes=()
-        readarray -d ' ' -t nodes < <(kubectl get no "${NAMES_ONLY[@]}")
+        IFS=' ' read -r -a nodes <<< "$(kubectl get no "${NAMES_ONLY[@]}")"
         local regex='Kernel|OS( Image)?|Architecture|(Container Runtime|Kubelet) Version'
 
         printf "=== System Info ===\n"
@@ -353,7 +353,7 @@ get_pixie_node_information() {
         for node in "${nodes[@]}"; do
             [[ ${i} -ge 3 ]] && break
             kubectl describe node "${node}"
-            (( i++ ))
+            i=$(( i + 1 ))
         done
     } >> "${PIXIE_NODE_INFO_FILE}" 2>&1
 }
