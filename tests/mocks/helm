@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Mock helm for nrk8s-diag.sh tests.
+
+cmd="${1:-}"
+
+case "${cmd}" in
+    list)
+        printf "NAME              NAMESPACE   REVISION   STATUS     CHART\n"
+        printf "newrelic-bundle   newrelic    3          deployed   nri-bundle-5.0.0\n"
+        exit 0
+        ;;
+    get)
+        printf "# Retrieved values for mock release\n"
+        printf "global:\n"
+        printf "  licenseKey: MOCK_LICENSE_KEY\n"
+        printf "  cluster: test-cluster\n"
+        exit 0
+        ;;
+    history)
+        printf "REVISION   STATUS     CHART\n"
+        printf "1          deployed   nri-bundle-4.0.0\n"
+        printf "2          deployed   nri-bundle-4.5.0\n"
+        printf "3          deployed   nri-bundle-5.0.0\n"
+        exit 0
+        ;;
+    *)
+        exit 0
+        ;;
+esac

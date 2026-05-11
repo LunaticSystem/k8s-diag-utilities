@@ -4,6 +4,81 @@
 
 A repository of utilities related to troubleshooting Kubernetes and Pixie installation issues.
 
+## nrk8s-diag.sh (Unified Script)
+
+`nrk8s-diag.sh` combines both the Kubernetes and Pixie diagnostics into a single script. Use the `-k` and `-p` flags to run one or both diagnostic sets. If neither flag is specified, both are run.
+
+### Usage
+
+Run from a terminal with `kubectl` and (optionally) `helm` access to the cluster. The namespace will typically be `newrelic`.
+
+```bash
+# Run all diagnostics (Kubernetes + Pixie)
+./nrk8s-diag.sh -n newrelic
+
+# Kubernetes diagnostics only
+./nrk8s-diag.sh -n newrelic -k
+
+# Pixie diagnostics only
+./nrk8s-diag.sh -n newrelic -p
+
+# Custom Helm release name
+./nrk8s-diag.sh -n newrelic -r my-release -k
+```
+
+| Flag | Description |
+|------|-------------|
+| `-n NAMESPACE` | **(Required)** Namespace where New Relic is installed |
+| `-r RELEASE_NAME` | *(Optional)* Helm release name (default: `newrelic-bundle`) |
+| `-k` | Run Kubernetes diagnostics |
+| `-p` | Run Pixie diagnostics |
+
+### Kubernetes Diagnostics (`-k`)
+
+- New Relic endpoint connectivity checks
+- Cluster info, nodes, versions, storage classes
+- New Relic CRDs and ClusterRoles/ClusterRoleBindings
+- Workload status (pods, deployments, daemonsets)
+- Full resource descriptions for the namespace *(parallelized — up to 10 concurrent)*
+- Pod logs, current and previous *(parallelized — up to 10 pods concurrent)*
+- Namespace events and network policies
+- Helm values and history
+
+### Pixie Diagnostics (`-p`)
+
+- Node memory and count validation (Pixie requires ≥ 8 GB RAM per node)
+- Node system info and resource allocations
+- Pixie agent status and log collection via `px` CLI (if available)
+- Namespaced resource listing across `olm`, `px-operator`, and the target namespace
+- Deployment logs for Pixie-related workloads
+- Per-pod event collection
+
+If you have the `px` CLI installed, authenticate before running:
+
+```bash
+px auth login
+px run px/cluster
+```
+
+### Output
+
+A compressed archive named `nrk8s_diag_<timestamp>.tar.gz` containing numbered log files for each diagnostic section. Attach this file to your New Relic support ticket.
+
+Temporary working files are automatically cleaned up on exit, including on failure or interrupt.
+
+---
+
+## Individual Scripts (Legacy)
+
+The original standalone scripts are still available:
+
+- `kube-diag/nrk8s-diag.sh` — Kubernetes-only diagnostics
+- `pixie-diag/pixie-diag` — Pixie-only diagnostics
+
+See the README in each subdirectory for usage details.
+
+---
+
 ## Support
 
 New Relic has open-sourced this project. This project is provided AS-IS WITHOUT WARRANTY OR DEDICATED SUPPORT. Issues and contributions should be reported to the project here on GitHub.

@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+# Mock kubectl for nrk8s-diag.sh tests.
+# Set MOCK_NS_VALID to control which namespace is considered valid (default: newrelic).
+
+# If called as "kubectl -n <ns> <cmd> ..." strip the leading -n <ns> so the
+# rest of the mock can treat cmd as $1 regardless of argument order.
+if [[ "${1:-}" == "-n" ]]; then
+    shift 2
+fi
+
+ARGS_STR="${*}"
+cmd="${1:-}"
+sub="${2:-}"
+
+case "${cmd}" in
+
+    get)
+        case "${sub}" in
+
+            ns)
+                if [[ "${ARGS_STR}" =~ "jsonpath" ]]; then
+                    printf "default kube-system newrelic olm px-operator"
+                    exit 0
+                fi
+                ns="${3:-}"
+                valid="${MOCK_NS_VALID:-newrelic}"
+                if [[ "${ns}" == "${valid}" ]]; then
+                    printf "%-20s Active\n" "${ns}"
+                    exit 0
+                fi
+                exit 1
+                ;;
+
+            no|nodes)
+                if [[ "${ARGS_STR}" =~ "metadata.name" ]]; then
+                    printf "test-node-1 test-node-2\n"
+                    exit 0
+                fi
+                if [[ "${ARGS_STR}" =~ "capacity.memory" ]]; then
+                    printf "16000000Ki"   # ~16 GB, above Pixie's 8 GB threshold
+                    exit 0
+                fi
+                if [[ "${ARGS_STR}" =~ "--no-headers" ]]; then
+                    printf "test-node-1   Ready   control-plane   10d   v1.24.0\n"
+                    printf "test-node-2   Ready   worker          10d   v1.24.0\n"
+                    exit 0
+                fi
+                printf "NAME          STATUS   ROLES           AGE   VERSION   INTERNAL-IP\n"
+                printf "test-node-1   Ready    control-plane   10d   v1.24.0   10.0.0.1\n"
+                printf "test-node-2   Ready    worker          10d   v1.24.0   10.0.0.2\n"
+                exit 0
+                ;;
+
+            pods)
+                if [[ "${ARGS_STR}" =~ "jsonpath" || "${ARGS_STR}" =~ "custom-columns" ]]; then
+                    printf "test-pod-1"
+                    exit 0
+                fi
+                if [[ "${ARGS_STR}" =~ "--field-selector" ]]; then
+                    exit 0   # All pods Running — no output means none non-Running
+                fi
+                if [[ "${ARGS_STR}" =~ "--no-headers" ]]; then
+                    printf "test-pod-1   1/1   Running   0   5d\n"
+                    exit 0
+                fi
+                printf "NAME         READY   STATUS    RESTARTS   AGE\n"
+                printf "test-pod-1   1/1     Running   0          5d\n"
+                exit 0
+                ;;
+
+            pod)
+                if [[ "${ARGS_STR}" =~ "jsonpath" ]]; then
+                    printf "agent "   # container names (trailing space is intentional)
+                    exit 0
+                fi
+                exit 0
+                ;;
+
+            crds)
+                printf "nri-bundle.newrelic.com   2024-01-01\n"
+                exit 0
+                ;;
+
+            clusterrole|clusterrolebinding)
+                printf "newrelic-agent   ClusterRole   2024-01-01\n"
+                exit 0
+                ;;
+
+            deployment,daemonset,statefulset,job,cronjob)
+                printf "No resources found.\n"
+                exit 0
+                ;;
+
+            events)
+                exit 0
+                ;;
+
+            networkpolicy)
+                printf "apiVersion: v1\nitems: []\n"
+                exit 0
+                ;;
+
+            storageclass)
+                printf "NAME       PROVISIONER                    RECLAIMPOLICY\n"
+                printf "standard   k8s.io/minikube-hostpath       Delete\n"
+                exit 0
+                ;;
+
+            -A)
+                # kubectl get -A events ...
+                exit 0
+                ;;
+
+            *)
+                # Unknown resource type — return empty (used by describe_all_resources loop)
+                exit 0
+                ;;
+        esac
+        ;;
+
+    run)
+        # Connectivity check pod — return an HTTP 200
+        printf "200"
+        exit 0
+        ;;
+
+    logs)
+        if [[ "${ARGS_STR}" =~ "--previous" ]]; then
+            exit 1   # No previous logs; script handles this with ||
+        fi
+        printf "mock log line 1\nmock log line 2\n"
+        exit 0
+        ;;
+
+    describe)
+        printf "Name:       %s\n" "${3:-unknown}"
+        printf "Namespace:  test\n"
+        printf "Status:     Running\n"
+        printf "Kernel Version:             5.15.0-91-generic\n"
+        printf "OS Image:                   Ubuntu 22.04.3 LTS\n"
+        printf "Architecture:               amd64\n"
+        printf "Container Runtime Version:  containerd://1.6.26\n"
+        printf "Kubelet Version:            v1.28.0\n"
+        printf "Allocated resources:\n"
+        printf "  Resource   Requests  Limits\n"
+        printf "  --------   --------  ------\n"
+        printf "  cpu        250m      500m\n"
+        printf "  memory     256Mi     512Mi\n"
+        exit 0
+        ;;
+
+    version)
+        printf "Client Version: v1.28.0\nServer Version: v1.28.0\n"
+        exit 0
+        ;;
+
+    config)
+        printf "test-cluster\n"
+        exit 0
+        ;;
+
+    cluster-info)
+        printf "Kubernetes control plane is running at https://127.0.0.1:6443\n"
+        exit 0
+        ;;
+
+    top)
+        if [[ "${sub}" == "nodes" ]]; then
+            printf "NAME          CPU(cores)   MEMORY(bytes)\n"
+            printf "test-node-1   150m         1024Mi\n"
+        else
+            printf "NAME         CPU(cores)   MEMORY(bytes)\n"
+            printf "test-pod-1   50m          128Mi\n"
+        fi
+        exit 0
+        ;;
+
+    api-resources)
+        # Return a short list so describe_all_resources loops are fast
+        printf "pods\nconfigmaps\n"
+        exit 0
+        ;;
+
+    *)
+        exit 0
+        ;;
+esac
