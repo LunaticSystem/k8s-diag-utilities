@@ -1,6 +1,7 @@
 # Claude Code
 .claude/
 CLAUDE.md
+TODO.md
 
 # Test artifacts
 tests/*.tap
