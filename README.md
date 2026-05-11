@@ -39,8 +39,8 @@ Run from a terminal with `kubectl` and (optionally) `helm` access to the cluster
 - Cluster info, nodes, versions, storage classes
 - New Relic CRDs and ClusterRoles/ClusterRoleBindings
 - Workload status (pods, deployments, daemonsets)
-- Full resource descriptions for the namespace
-- Pod logs (current and previous)
+- Full resource descriptions for the namespace *(parallelized — up to 10 concurrent)*
+- Pod logs, current and previous *(parallelized — up to 10 pods concurrent)*
 - Namespace events and network policies
 - Helm values and history
 
@@ -63,6 +63,8 @@ px run px/cluster
 ### Output
 
 A compressed archive named `nrk8s_diag_<timestamp>.tar.gz` containing numbered log files for each diagnostic section. Attach this file to your New Relic support ticket.
+
+Temporary working files are automatically cleaned up on exit, including on failure or interrupt.
 
 ---
 

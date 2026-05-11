@@ -204,6 +204,47 @@ teardown() {
     ! [[ "${contents}" =~ "11_pixie_key_info.log" ]]
 }
 
+# ── Archive file content ──────────────────────────────────────────────────────
+
+@test "describe log contains resource descriptions" {
+    run bash "${SCRIPT}" -n newrelic -k
+    [ "${status}" -eq 0 ]
+    local archive dir_name
+    archive=$(ls "${BATS_TEST_TMPDIR}"/nrk8s_diag_*.tar.gz 2>/dev/null | head -1)
+    dir_name=$(tar -tzf "${archive}" | head -1 | tr -d '/')
+    tar -xzf "${archive}" -C "${BATS_TEST_TMPDIR}"
+    [[ "$(cat "${BATS_TEST_TMPDIR}/${dir_name}/03_nrk8s_describe.log")" =~ "===" ]]
+}
+
+@test "pod logs file contains log output" {
+    run bash "${SCRIPT}" -n newrelic -k
+    [ "${status}" -eq 0 ]
+    local archive dir_name
+    archive=$(ls "${BATS_TEST_TMPDIR}"/nrk8s_diag_*.tar.gz 2>/dev/null | head -1)
+    dir_name=$(tar -tzf "${archive}" | head -1 | tr -d '/')
+    tar -xzf "${archive}" -C "${BATS_TEST_TMPDIR}"
+    [[ "$(cat "${BATS_TEST_TMPDIR}/${dir_name}/04_nrk8s_logs.log")" =~ "Pod:" ]]
+}
+
+# ── Temp directory cleanup ─────────────────────────────────────────────────────
+
+@test "no temp directories are left after successful run" {
+    run bash "${SCRIPT}" -n newrelic -k
+    [ "${status}" -eq 0 ]
+    local leaked
+    leaked=$(find /private/var/folders /tmp -maxdepth 6 -type d -name "nrk8s_diag_*" 2>/dev/null || true)
+    [ -z "${leaked}" ]
+}
+
+@test "no temp directories are left after failed run" {
+    export MOCK_NS_VALID="other-ns"
+    run bash "${SCRIPT}" -n newrelic -k
+    [ "${status}" -eq 1 ]
+    local leaked
+    leaked=$(find /private/var/folders /tmp -maxdepth 6 -type d -name "nrk8s_diag_*" 2>/dev/null || true)
+    [ -z "${leaked}" ]
+}
+
 # ── px CLI availability ────────────────────────────────────────────────────────
 
 @test "pixie diagnostics complete when px CLI is unavailable" {
